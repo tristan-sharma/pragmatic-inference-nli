@@ -6,10 +6,6 @@ from collections import Counter
 from sklearn.metrics import confusion_matrix, accuracy_score
 from datasets import load_dataset
 
-multinli_inspired_dataset = pd.read_excel('../data/MultiNLIinspired-nli-dataset.xlsx', header=0)
-imppres_inspired_dataset = pd.read_excel('../data/IMPPRESinspired-nli-dataset.xlsx', header=0)
-model = BertNLIModel('../models/bert-base.state_dict')
-
 def predict_relationship(model, premise, hypothesis):
     '''
     Returns the predicted relationship between the premise and hypothesis.
@@ -21,36 +17,98 @@ def predict_relationship(model, premise, hypothesis):
         return 'entailment'
     return label[0]
 
-def get_relationship_accuracies(dataset):
+def add_prediction_columns(dataset, model):
+    """
+    Adds prediction columns to the dataset for baseline, critical, and non-critical scenarios.
+    Args:
+        dataset (pd.DataFrame): The dataset containing premise, hypothesis, and other relevant columns.
+        model (BertNLIModel): The pre-trained BERT model for NLI.
+    
+    Returns:
+        pd.DataFrame: The updated dataset with new prediction columns.
+    """
+    # Initialize lists to store predictions
+    baseline_predictions = []
+    critical_predictions = []
+    noncritical_predictions = []
 
-    actual_relationships = []
-    baseline_relationships = []
-    critical_relationships = []
-    noncritical_relationships = []
-
-    for index, row in dataset.iterrows():
-        original_premise = row['Premise']
+    for _, row in dataset.iterrows():
+        # Extracting data from the row
+        premise = row['Premise']
+        hypothesis = row['Hypothesis']
         masked_premise_critical = row['Masked Premise (Critical)']
         masked_premise_noncritical = row['Masked Premise (Non-Critical)']
-        hypothesis = row['Hypothesis']
-        presupposition_type = row['Presupposition Type']
-        relationship_type = row['Relationship Type'].lower()
-        masked_word_critical = row['Masked Word (Critical)']
-        masked_word_noncritical = row['Masked Word (Non-Critical)']
 
-        baseline_relationship = predict_relationship(model, original_premise, hypothesis) # Baseline prediction without any masking
-        critical_relationship = predict_relationship(model, masked_premise_critical, hypothesis) # Prediction with critical masking
-        noncritical_relationship = predict_relationship(model, masked_premise_noncritical, hypothesis) # Prediction with non-critical masking
+        # Making predictions
+        baseline_pred = predict_relationship(model, premise, hypothesis)
+        critical_pred = predict_relationship(model, masked_premise_critical, hypothesis)
+        noncritical_pred = predict_relationship(model, masked_premise_noncritical, hypothesis)
 
-        actual_relationships.append(relationship_type)
-        baseline_relationships.append(baseline_relationship)
-        critical_relationships.append(critical_relationship)
-        noncritical_relationships.append(noncritical_relationship)
+        # Storing predictions
+        baseline_predictions.append(baseline_pred)
+        critical_predictions.append(critical_pred)
+        noncritical_predictions.append(noncritical_pred)
+
+    # Adding predictions to the dataset
+    dataset['Baseline Prediction'] = baseline_predictions
+    dataset['Critical Prediction'] = critical_predictions
+    dataset['Non-Critical Prediction'] = noncritical_predictions
+
+    dataset['Relationship Type'] = dataset['Relationship Type'].str.lower()
+
+    return dataset
+
+def get_relationship_accuracies(dataset):
+    actual_relationships = dataset['Relationship Type']
+    baseline_relationships = dataset['Baseline Prediction']
+    critical_relationships = dataset['Critical Prediction']
+    noncritical_relationships = dataset['Non-Critical Prediction']
 
     print("Baseline accuracy: {}".format(accuracy_score(actual_relationships, baseline_relationships)))
     print("Critical accuracy: {}".format(accuracy_score(actual_relationships, critical_relationships)))
     print("Non-critical accuracy: {}".format(accuracy_score(actual_relationships, noncritical_relationships)))
 
-    return actual_relationships, baseline_relationships, critical_relationships, noncritical_relationships
+def analyze_presupposition_types(dataset):
+    presupposition_types = dataset['Presupposition Type'].unique()
+    results = []
 
-get_relationship_accuracies(imppres_inspired_dataset)
+    for presupposition_type in presupposition_types:
+        filtered_dataset = dataset[dataset['Presupposition Type'] == presupposition_type]
+
+        # Use precomputed predictions
+        baseline_accuracy = accuracy_score(filtered_dataset['Relationship Type'], filtered_dataset['Baseline Prediction'])
+        critical_accuracy = accuracy_score(filtered_dataset['Relationship Type'], filtered_dataset['Critical Prediction'])
+        noncritical_accuracy = accuracy_score(filtered_dataset['Relationship Type'], filtered_dataset['Non-Critical Prediction'])
+
+        results.append({
+            'Presupposition Type': presupposition_type,
+            'Baseline Accuracy': baseline_accuracy,
+            'Critical Accuracy': critical_accuracy,
+            'Non-Critical Accuracy': noncritical_accuracy
+        })
+
+    return pd.DataFrame(results)
+
+def main():
+    multinli_inspired_dataset = pd.read_excel('../data/MultiNLIinspired-nli-dataset.xlsx', header=0)
+    imppres_inspired_dataset = pd.read_excel('../data/IMPPRESinspired-nli-dataset.xlsx', header=0)
+    
+    model = BertNLIModel('../models/bert-base.state_dict')
+
+    imppres_inspired_dataset = add_prediction_columns(imppres_inspired_dataset, model)
+    multinli_inspired_dataset = add_prediction_columns(multinli_inspired_dataset, model)
+
+    print("IMPPRES-inspired dataset accuracies:")
+    get_relationship_accuracies(imppres_inspired_dataset)
+    print("\nMultiNLI-inspired dataset accuracies:")
+    get_relationship_accuracies(multinli_inspired_dataset)
+
+    print("\nIMPPRES-inspired dataset presupposition analysis:")
+    imppres_presupposition_analysis = analyze_presupposition_types(imppres_inspired_dataset)
+    print(imppres_presupposition_analysis)
+    print("\nMultiNLI-inspired dataset presupposition analysis:")
+    multinli_presupposition_analysis = analyze_presupposition_types(multinli_inspired_dataset)
+    print(multinli_presupposition_analysis)
+
+if __name__ == "__main__":
+    main()
