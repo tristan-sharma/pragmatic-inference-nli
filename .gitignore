@@ -1,1 +1,3 @@
 models/*
+!models/get_data.py
+context.txt
