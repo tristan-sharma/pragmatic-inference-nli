@@ -98,34 +98,43 @@ def analyze_presupposition_types(dataset):
 
     return pd.DataFrame(results)
 
-def plot_accuracy(dataset, name):
-    accuracies = get_relationship_accuracies(dataset)
-    accuracies.plot(kind='bar', title='Model Accuracy Comparison')
+def plot_accuracy(dataset, name, dataset_title):
+    accuracies_df = get_relationship_accuracies(dataset)
+    accuracies_df = accuracies_df.T  # Transpose the DataFrame for correct plotting
+    accuracies_df.reset_index(inplace=True)
+    accuracies_df.columns = ['Condition', 'Accuracy']
+    
+    ax = accuracies_df.plot(x='Condition', y='Accuracy', kind='bar', title=f'Model Accuracy Comparison - {dataset_title}')
     plt.xlabel('Condition')
     plt.ylabel('Accuracy')
-    plt.savefig(f'./task2plots/{name}model_accuracy_comparison.png')
+    ax.get_legend().remove()  # Remove legend if not needed
+    plt.xticks(rotation=0)  # Set x-ticks rotation
+    plt.tight_layout()
+    plt.savefig(f'./task2plots/{name}_model_accuracy_comparison.png')
     plt.close()
 
-def plot_confusion_matrix(dataset, name, prediction_type): 
+def plot_confusion_matrix(dataset, name, prediction_type, dataset_title): 
     cm = confusion_matrix(dataset['Relationship Type'], dataset[prediction_type])
     cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    # Define the class names
     class_names = ['Entailment', 'Neutral', 'Contradiction']
     sns.heatmap(cm, annot=True, fmt='.2f', xticklabels=class_names, yticklabels=class_names)
-    plt.title(f'Confusion Matrix - {prediction_type}')
-    plt.ylabel('Actual')
-    plt.xlabel('Predicted')
-    plt.savefig(f'./task2plots/{name}confusion_matrix_{prediction_type}.png')
+    plt.title(f'Confusion Matrix - {prediction_type} - {dataset_title}')
+    plt.ylabel('Actual', fontweight='bold')
+    plt.xlabel('Predicted', fontweight='bold')
+    plt.savefig(f'./task2plots/{name}_confusion_matrix_{prediction_type}.png')
     plt.close()
 
-def print_classification_report(dataset, prediction_type):
+def print_classification_report(dataset, prediction_type, name, dataset_title):
     report = classification_report(dataset['Relationship Type'], dataset[prediction_type], target_names=['Entailment', 'Neutral', 'Contradiction'])
-    print(report)
+    file_path = f'./task2plots/{name}_classification_report_{prediction_type}.txt'
+    with open(file_path, 'w') as file:
+        file.write(f"Classification Report - {dataset_title}\n")
+        file.write(report)
+    print(f"Classification report for {dataset_title} saved to {file_path}")
 
-def performance_by_relationship_type(dataset):
-    relationship_types = dataset['Relationship Type'].unique()
+def performance_by_relationship_type(dataset, name, dataset_title):
     results = []
-
+    relationship_types = dataset['Relationship Type'].unique()
     for rel_type in relationship_types:
         filtered_dataset = dataset[dataset['Relationship Type'] == rel_type]
         baseline_accuracy = accuracy_score(filtered_dataset['Relationship Type'], filtered_dataset['Baseline Prediction'])
@@ -138,54 +147,66 @@ def performance_by_relationship_type(dataset):
             'Critical Accuracy': critical_accuracy,
             'Non-Critical Accuracy': noncritical_accuracy
         })
-
-    return pd.DataFrame(results)
-
-def plot_accuracy_by_presupposition_type(dataset, file_name='accuracy_by_presupposition_type.png'):
-    analysis = analyze_presupposition_types(dataset)
-    analysis.plot(x='Presupposition Type', kind='bar', stacked=True)
+    df_results = pd.DataFrame(results)
+    ax = df_results.plot(x='Relationship Type', kind='bar', stacked=True, figsize=(10, 6))
+    plt.title(f'Performance by Relationship Type - {dataset_title}')
     plt.ylabel('Accuracy')
-    plt.title('Accuracy by Presupposition Type')
-    plt.savefig(file_name)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=90, fontsize=10)  # Rotate labels and set smaller font size
+    plt.tight_layout()  # Adjust layout to fit everything nicely
+    plt.savefig(f'./task2plots/{name}_performance_by_relationship_type.png')
     plt.close()
+    return df_results
+
+def plot_accuracy_by_presupposition_type(dataset, name, dataset_title):
+    analysis = analyze_presupposition_types(dataset)
+    ax = analysis.plot(x='Presupposition Type', kind='bar', stacked=True, figsize=(10, 6))
+    plt.ylabel('Accuracy')
+    plt.title(f'Accuracy by Presupposition Type - {dataset_title}')
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=90, fontsize=10)  # Rotate labels and set smaller font size
+    plt.tight_layout()  # Adjust layout to fit everything nicely
+    plt.savefig(f'./task2plots/{name}_accuracy_by_presupposition_type.png')
+    plt.close()
+    return analysis
+
+def process_dataset(dataset_name, model, dataset_title):
+    # Load dataset
+    dataset = pd.read_excel(f'../data/{dataset_name}.xlsx', header=0)
+
+    # Check for pre-existing prediction columns
+    if 'Baseline Prediction' not in dataset.columns:
+        print(f"Adding prediction columns to {dataset_name}...")
+        dataset = add_prediction_columns(dataset, model)
+        dataset.to_excel(f'../data/{dataset_name}.xlsx', index=False)
+
+    # Perform analyses
+    print(f"\n{dataset_title} dataset accuracies:")
+    get_relationship_accuracies(dataset)
+
+    print(f"\n{dataset_title} dataset presupposition analysis:")
+    presupposition_analysis = analyze_presupposition_types(dataset)
+    print(presupposition_analysis)
+
+    # Plotting
+    plot_accuracy(dataset, dataset_name, dataset_title)
+    plot_confusion_matrix(dataset, dataset_name, 'Baseline Prediction', dataset_title)
+    plot_confusion_matrix(dataset, dataset_name, 'Critical Prediction', dataset_title)
+    plot_confusion_matrix(dataset, dataset_name, 'Non-Critical Prediction', dataset_title)
+    performance_by_relationship_type(dataset, dataset_name, dataset_title)
+    plot_accuracy_by_presupposition_type(dataset, dataset_name, dataset_title)
+
+    print(f"Classification report for {dataset_title} dataset:")
+    print_classification_report(dataset, 'Baseline Prediction', dataset_name, dataset_title)
+    print_classification_report(dataset, 'Critical Prediction', dataset_name, dataset_title)
+    print_classification_report(dataset, 'Non-Critical Prediction', dataset_name, dataset_title)
 
 def main():
-    multinli_inspired_dataset = pd.read_excel('../data/MultiNLIinspired-nli-dataset.xlsx', header=0)
-    imppres_inspired_dataset = pd.read_excel('../data/IMPPRESinspired-nli-dataset.xlsx', header=0)
+    # Initialize the BERT NLI model
+    model = BertNLIModel('../models/bert-base.state_dict')
 
-    # if the prediction columns already exist, skip this step
-    if 'Baseline Prediction' not in multinli_inspired_dataset.columns:
-        print("Adding prediction columns to the datasets...")
-        model = BertNLIModel('../models/bert-base.state_dict')
-        imppres_inspired_dataset = add_prediction_columns(imppres_inspired_dataset, model)
-        multinli_inspired_dataset = add_prediction_columns(multinli_inspired_dataset, model)
-        # Replace the data files with the updated ones
-        imppres_inspired_dataset.to_excel('../data/IMPPRESinspired-nli-dataset.xlsx', index=False)
-        multinli_inspired_dataset.to_excel('../data/MultiNLIinspired-nli-dataset.xlsx', index=False)
-
-    print("IMPPRES-inspired dataset accuracies:")
-    get_relationship_accuracies(imppres_inspired_dataset)
-    print("\nMultiNLI-inspired dataset accuracies:")
-    get_relationship_accuracies(multinli_inspired_dataset)
-
-    print("\nIMPPRES-inspired dataset presupposition analysis:")
-    imppres_presupposition_analysis = analyze_presupposition_types(imppres_inspired_dataset)
-    print(imppres_presupposition_analysis)
-    print("\nMultiNLI-inspired dataset presupposition analysis:")
-    multinli_presupposition_analysis = analyze_presupposition_types(multinli_inspired_dataset)
-    print(multinli_presupposition_analysis)
-
-    plot_accuracy(imppres_inspired_dataset, 'IMPPRES-inspired ')
-    plot_accuracy(multinli_inspired_dataset, 'MultiNLI-inspired ')
-    plot_confusion_matrix(imppres_inspired_dataset, 'IMPPRES-inspired ', 'Baseline Prediction',)
-    plot_confusion_matrix(imppres_inspired_dataset, 'IMPPRES-inspired ', 'Critical Prediction')
-    plot_confusion_matrix(imppres_inspired_dataset, 'IMPPRES-inspired ', 'Non-Critical Prediction')
-
-    print("Classification report for IMPPRES-inspired dataset:")
-    print_classification_report(imppres_inspired_dataset, 'Baseline Prediction')
-
-    print("Classification report for MultiNLI-inspired dataset:")
-    print_classification_report(multinli_inspired_dataset, 'Baseline Prediction')
+    # Process each dataset
+    process_dataset('IMPPRESinspired-nli-dataset', model, 'IMPPRES Set')
+    process_dataset('MultiNLIinspired-nli-dataset-trainsplit', model, 'MultiNLI Train Split')
+    process_dataset('MultiNLIinspired-nli-dataset-validation-split', model, 'MultiNLI Validation Split')
 
 if __name__ == "__main__":
     main()

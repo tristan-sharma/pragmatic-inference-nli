@@ -3,7 +3,7 @@ from task2 import predict_relationship
 from sklearn.metrics import accuracy_score
 from datasets import load_dataset
 import pandas as pd
-from analysis.bert_nli import BertNLIModel
+from bert_nli import BertNLIModel
 
 multi_nli_dataset = load_dataset("multi_nli")
 val_data = pd.DataFrame(multi_nli_dataset['validation_matched'])

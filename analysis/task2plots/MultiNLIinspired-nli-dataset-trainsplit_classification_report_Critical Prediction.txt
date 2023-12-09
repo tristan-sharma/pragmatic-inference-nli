@@ -1,0 +1,10 @@
+Classification Report - MultiNLI Train Split
+               precision    recall  f1-score   support
+
+   Entailment       0.81      0.73      0.77        30
+      Neutral       0.81      0.57      0.67        30
+Contradiction       0.64      0.90      0.75        30
+
+     accuracy                           0.73        90
+    macro avg       0.76      0.73      0.73        90
+ weighted avg       0.76      0.73      0.73        90
