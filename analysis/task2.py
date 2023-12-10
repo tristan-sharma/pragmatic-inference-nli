@@ -205,8 +205,8 @@ def main():
 
     # Process each dataset
     process_dataset('IMPPRESinspired-nli-dataset', model, 'IMPPRES Set')
-    process_dataset('MultiNLIinspired-nli-dataset-trainsplit', model, 'MultiNLI Train Split')
-    process_dataset('MultiNLIinspired-nli-dataset-validation-split', model, 'MultiNLI Validation Split')
+    process_dataset('MultiNLIinspired-nli-dataset-trainsplit', model, 'MultiNLI Train Split Set')
+    process_dataset('MultiNLIinspired-nli-dataset-validation-split', model, 'MultiNLI Validation Split Set')
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,10 @@
 Classification Report - MultiNLI Validation Split
                precision    recall  f1-score   support
 
-   Entailment       0.65      0.73      0.69       150
-      Neutral       0.62      0.27      0.37       150
-Contradiction       0.40      0.57      0.47       150
+   Entailment       0.82      0.77      0.79        30
+      Neutral       0.80      0.40      0.53        30
+Contradiction       0.51      0.80      0.62        30
 
-     accuracy                           0.52       450
-    macro avg       0.56      0.52      0.51       450
- weighted avg       0.56      0.52      0.51       450
+     accuracy                           0.66        90
+    macro avg       0.71      0.66      0.65        90
+ weighted avg       0.71      0.66      0.65        90
